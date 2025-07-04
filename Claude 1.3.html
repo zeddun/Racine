@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire de Distribution</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Page de connexion
+        const LoginPage = ({ onLogin, users, onCreateAccount }) => {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [showCreateAccount, setShowCreateAccount] = useState(false);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                
+                // Vérifier les comptes par défaut
+                if (username === 'admin' && password === 'admin123') {
+                    onLogin({ username: 'admin', role: 'admin', name: 'Administrateur', id: 'default-admin' });
+                    return;
+                } else if (username === 'user' && password === 'user123') {
+                    onLogin({ username: 'user', role: 'user', name: 'Utilisateur', id: 'default-user' });
+                    return;
+                }
+
+                // Vérifier les comptes créés
+                const user = users.find(u => u.username === username && u.password === password);
+                if (user) {
+                    onLogin(user);
+                } else {
+                    setError('Identifiants incorrects');
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-2xl font-bold text-gray-800 mb-2">🏢 Gestionnaire de Distribution</h1>
+                            <p className="text-gray-600">Connectez-vous pour accéder à l'application</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                                    ⚠️ {error}
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Nom d'utilisateur
+                                </label>
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Mot de passe
+                                </label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 font-medium"
+                            >
+                                🔐 Se connecter
+                            </button>
+                        </form>
+
+                        <div className="mt-4 text-center">
+                            <button
+                                onClick={() => setShowCreateAccount(!showCreateAccount)}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                                {showCreateAccount ? '⬅️ Retour à la connexion' : '➕ Créer un compte'}
+                            </button>
+                        </div>
+
+                        {showCreateAccount && (
+                            <CreateAccountForm 
+                                onCreateAccount={onCreateAccount}
+                                onCancel={() => setShowCreateAccount(false)}
+                            />
+                        )}
+
+                        {!showCreateAccount && (
+                            <div className="mt-6 pt-6 border-t border-gray-200 text-sm text-gray-600">
+                                <p className="mb-2"><strong>Comptes de test :</strong></p>
+                                <p>👑 Admin: admin / admin123</p>
+                                <p>👤 User: user / user123</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Composant de sélection de distributeurs avec recherche
+        const DistributorSelector = ({ availableDistributors, selectedDistributor, onSelectDistributor, onCancel, distributorType }) => {
+            const [searchTerm, setSearchTerm] = useState('');
+
+            const filteredDistributors = availableDistributors.filter(distributor => 
+                distributor.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            const getTypeIcon = (type) => {
+                switch(type) {
+                    case 'grossistes': return '🏢';
+                    case 'supergrossistes': return '🏭';
+                    default: return '👥';
+                }
+            };
+
+            const getTypeName = (type) => {
+                switch(type) {
+                    case 'grossistes': return 'Grossiste';
+                    case 'supergrossistes': return 'Supergrossiste';
+                    default: return 'Distributeur';
+                }
+            };
+
+            return (
+                <div className="bg-white border border-orange-300 rounded-lg p-4 mt-3">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-semibold text-orange-800">
+                            Rechercher un {distributorType === 'grossistes' ? 'grossiste' : 'supergrossiste'}
+                        </h4>
+                        <button
+                            onClick={onCancel}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            ❌
+                        </button>
+                    </div>
+
+                    {/* Barre de recherche */}
+                    <div className="mb-4">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder={`Tapez le nom du ${distributorType === 'grossistes' ? 'grossiste' : 'supergrossiste'}...`}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        />
+                    </div>
+
+                    {/* Liste des distributeurs filtrés */}
+                    <div className="max-h-60 overflow-y-auto">
+                        {filteredDistributors.length === 0 ? (
+                            <div className="text-center py-4 text-gray-500">
+                                {availableDistributors.length === 0 
+                                    ? `Aucun ${distributorType === 'grossistes' ? 'grossiste' : 'supergrossiste'} enregistré`
+                                    : `Aucun ${distributorType === 'grossistes' ? 'grossiste' : 'supergrossiste'} trouvé`
+                                }
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {filteredDistributors.map((distributor) => (
+                                    <div
+                                        key={distributor.id}
+                                        onClick={() => onSelectDistributor(distributor)}
+                                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-orange-50 cursor-pointer transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{getTypeIcon(distributor.type)}</span>
+                                            <div>
+                                                <div className="font-medium">{distributor.name}</div>
+                                                <div className="text-sm text-gray-600">{getTypeName(distributor.type)}</div>
+                                            </div>
+                                        </div>
+                                        <button className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700">
+                                            Sélectionner
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Composant de sélection de clients avec recherche et filtres
+        const ClientSelector = ({ clients, selectedClient, onSelectClient, onCancel }) => {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [typeFilters, setTypeFilters] = useState({
+                pharmacies: true,
+                grossistes: true,
+                supergrossistes: true
+            });
+
+            const toggleTypeFilter = (type) => {
+                setTypeFilters(prev => ({ ...prev, [type]: !prev[type] }));
+            };
+
+            const filteredClients = clients.filter(client => {
+                const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesType = typeFilters[client.type];
+                return matchesSearch && matchesType;
+            });
+
+            const getTypeIcon = (type) => {
+                switch(type) {
+                    case 'pharmacies': return '🏥';
+                    case 'grossistes': return '🏢';
+                    case 'supergrossistes': return '🏭';
+                    default: return '👥';
+                }
+            };
+
+            const getTypeName = (type) => {
+                switch(type) {
+                    case 'pharmacies': return 'Pharmacie';
+                    case 'grossistes': return 'Grossiste';
+                    case 'supergrossistes': return 'Supergrossiste';
+                    default: return 'Client';
+                }
+            };
+
+            return (
+                <div className="bg-white border border-gray-300 rounded-lg p-4 mt-3">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-semibold text-gray-800">Rechercher un client</h4>
+                        <button
+                            onClick={onCancel}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            ❌
+                        </button>
+                    </div>
+
+                    {/* Barre de recherche */}
+                    <div className="mb-4">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Tapez le nom du client..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {/* Filtres par type */}
+                    <div className="mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Filtrer par type :</p>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={typeFilters.pharmacies}
+                                    onChange={() => toggleTypeFilter('pharmacies')}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">🏥 Pharmacies</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={typeFilters.grossistes}
+                                    onChange={() => toggleTypeFilter('grossistes')}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">🏢 Grossistes</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={typeFilters.supergrossistes}
+                                    onChange={() => toggleTypeFilter('supergrossistes')}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-sm">🏭 Supergrossistes</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Liste des clients filtrés */}
+                    <div className="max-h-60 overflow-y-auto">
+                        {filteredClients.length === 0 ? (
+                            <div className="text-center py-4 text-gray-500">
+                                {clients.length === 0 ? 'Aucun client enregistré' : 'Aucun client trouvé'}
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {filteredClients.map((client) => (
+                                    <div
+                                        key={client.id}
+                                        onClick={() => onSelectClient(client)}
+                                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{getTypeIcon(client.type)}</span>
+                                            <div>
+                                                <div className="font-medium">{client.name}</div>
+                                                <div className="text-sm text-gray-600">{getTypeName(client.type)}</div>
+                                            </div>
+                                        </div>
+                                        <button className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                                            Sélectionner
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Composant de création de compte
+        const CreateAccountForm = ({ onCreateAccount, onCancel }) => {
+            const [formData, setFormData] = useState({
+                username: '',
+                password: '',
+                confirmPassword: '',
+                name: '',
+                role: 'user'
+            });
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                setError('');
+                setSuccess('');
+
+                // Validations
+                if (formData.password !== formData.confirmPassword) {
+                    setError('Les mots de passe ne correspondent pas');
+                    return;
+                }
+
+                if (formData.password.length < 6) {
+                    setError('Le mot de passe doit contenir au moins 6 caractères');
+                    return;
+                }
+
+                if (!formData.username.trim() || !formData.name.trim()) {
+                    setError('Veuillez remplir tous les champs obligatoires');
+                    return;
+                }
+
+                const newUser = {
+                    id: Date.now().toString(),
+                    username: formData.username.trim(),
+                    password: formData.password,
+                    name: formData.name.trim(),
+                    role: formData.role,
+                    createdDate: new Date().toLocaleDateString('fr-FR')
+                };
+
+                const success = onCreateAccount(newUser);
+                if (success) {
+                    setSuccess('✅ Compte créé avec succès !');
+                    setFormData({
+                        username: '',
+                        password: '',
+                        confirmPassword: '',
+                        name: '',
+                        role: 'user'
+                    });
+                } else {
+                    setError('Ce nom d\'utilisateur existe déjà');
+                }
+            };
+
+            const handleChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+            };
+
+            return (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Créer un nouveau compte</h3>
+                    
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                                ⚠️ {error}
+                            </div>
+                        )}
+
+                        {success && (
+                            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                                {success}
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Nom d'utilisateur *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.username}
+                                onChange={(e) => handleChange('username', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Nom complet *
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => handleChange('name', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Rôle
+                            </label>
+                            <select
+                                value={formData.role}
+                                onChange={(e) => handleChange('role', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                                <option value="user">👤 Utilisateur</option>
+                                <option value="admin">👑 Administrateur</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Mot de passe * (min. 6 caractères)
+                            </label>
+                            <input
+                                type="password"
+                                value={formData.password}
+                                onChange={(e) => handleChange('password', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                required
+                                minLength={6}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Confirmer le mot de passe *
+                            </label>
+                            <input
+                                type="password"
+                                value={formData.confirmPassword}
+                                onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                required
+                            />
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="submit"
+                                className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 font-medium text-sm"
+                            >
+                                ✅ Créer le compte
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 font-medium text-sm"
+                            >
+                                ❌ Annuler
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            );
+        };
+
+        // Page de gestion des utilisateurs (Admin seulement)
+        const UserManagement = ({ users, onUpdateUser, onDeleteUser, onCreateUser }) => {
+            const [showCreateUser, setShowCreateUser] = useState(false);
+            const [editingUser, setEditingUser] = useState(null);
+
+            const handleRoleChange = (userId, newRole) => {
+                onUpdateUser(userId, { role: newRole });
+            };
+
+            const handleDeleteUser = (userId) => {
+                if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+                    onDeleteUser(userId);
+                }
+            };
+
+            const userStats = {
+                total: users.length,
+                admins: users.filter(u => u.role === 'admin').length,
+                users: users.filter(u => u.role === 'user').length
+            };
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">👥 Gestion des Utilisateurs</h2>
+                    
+                    {/* Statistiques */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-blue-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{userStats.total}</div>
+                            <div className="text-blue-100">Utilisateurs totaux</div>
+                        </div>
+                        <div className="bg-red-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{userStats.admins}</div>
+                            <div className="text-red-100">Administrateurs</div>
+                        </div>
+                        <div className="bg-green-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{userStats.users}</div>
+                            <div className="text-green-100">Utilisateurs standards</div>
+                        </div>
+                    </div>
+
+                    {/* Bouton créer utilisateur */}
+                    <div className="mb-6">
+                        <button
+                            onClick={() => setShowCreateUser(!showCreateUser)}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                        >
+                            {showCreateUser ? '❌ Annuler' : '➕ Créer un utilisateur'}
+                        </button>
+                    </div>
+
+                    {/* Formulaire de création */}
+                    {showCreateUser && (
+                        <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                            <CreateAccountForm 
+                                onCreateAccount={(user) => {
+                                    const success = onCreateUser(user);
+                                    if (success) {
+                                        setShowCreateUser(false);
+                                    }
+                                    return success;
+                                }}
+                                onCancel={() => setShowCreateUser(false)}
+                            />
+                        </div>
+                    )}
+
+                    {/* Liste des utilisateurs */}
+                    <div className="bg-white rounded-lg border border-gray-200">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h3 className="text-lg font-semibold text-gray-800">Liste des utilisateurs</h3>
+                        </div>
+                        
+                        {users.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                                Aucun utilisateur créé
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-200">
+                                {users.map((user) => (
+                                    <div key={user.id} className="p-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                                                    user.role === 'admin' ? 'bg-red-500' : 'bg-blue-500'
+                                                }`}>
+                                                    {user.role === 'admin' ? '👑' : '👤'}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold text-gray-900">{user.name}</h4>
+                                                    <p className="text-sm text-gray-600">@{user.username}</p>
+                                                    <p className="text-xs text-gray-500">Créé le {user.createdDate}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                    className="px-3 py-1 border border-gray-300 rounded text-sm"
+                                                    disabled={user.id === 'default-admin'} // Empêcher la modification du compte admin par défaut
+                                                >
+                                                    <option value="user">👤 Utilisateur</option>
+                                                    <option value="admin">👑 Admin</option>
+                                                </select>
+                                                
+                                                {user.id !== 'default-admin' && user.id !== 'default-user' && (
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-100 rounded"
+                                                        title="Supprimer l'utilisateur"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                                
+                                                {(user.id === 'default-admin' || user.id === 'default-user') && (
+                                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                                        Compte système
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Dashboard Admin
+        const AdminDashboard = ({ clients, orders, products, users }) => {
+            const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+            const pharmaciesCount = clients.filter(c => c.type === 'pharmacies').length;
+            const grossistesCount = clients.filter(c => c.type === 'grossistes').length;
+            const supergrossistesCount = clients.filter(c => c.type === 'supergrossistes').length;
+
+            return (
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">📊 Dashboard Administrateur</h2>
+                    
+                    {/* Statistiques principales */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+                        <div className="bg-blue-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{totalRevenue.toFixed(2)}€</div>
+                            <div className="text-blue-100">Chiffre d'affaires</div>
+                        </div>
+                        <div className="bg-green-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{orders.length}</div>
+                            <div className="text-green-100">Commandes totales</div>
+                        </div>
+                        <div className="bg-purple-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{clients.length}</div>
+                            <div className="text-purple-100">Clients totaux</div>
+                        </div>
+                        <div className="bg-orange-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{products.length}</div>
+                            <div className="text-orange-100">Produits</div>
+                        </div>
+                        <div className="bg-indigo-500 text-white p-6 rounded-lg">
+                            <div className="text-3xl font-bold">{users.length + 2}</div>
+                            <div className="text-indigo-100">Utilisateurs</div>
+                        </div>
+                    </div>
+
+                    {/* Répartition clients */}
+                    <div className="bg-white rounded-lg p-6 border border-gray-200 mb-8">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">🏢 Répartition des clients</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="text-center p-4 bg-green-50 rounded-lg">
+                                <div className="text-3xl mb-2">🏥</div>
+                                <div className="text-2xl font-bold text-green-600">{pharmaciesCount}</div>
+                                <div className="text-sm text-gray-600">Pharmacies</div>
+                            </div>
+                            <div className="text-center p-4 bg-blue-50 rounded-lg">
+                                <div className="text-3xl mb-2">🏢</div>
+                                <div className="text-2xl font-bold text-blue-600">{grossistesCount}</div>
+                                <div className="text-sm text-gray-600">Grossistes</div>
+                            </div>
+                            <div className="text-center p-4 bg-purple-50 rounded-lg">
+                                <div className="text-3xl mb-2">🏭</div>
+                                <div className="text-2xl font-bold text-purple-600">{supergrossistesCount}</div>
+                                <div className="text-sm text-gray-600">Supergrossistes</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Commandes récentes */}
+                    <div className="bg-white rounded-lg p-6 border border-gray-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">📋 Commandes récentes (toutes)</h3>
+                        {orders.length === 0 ? (
+                            <p className="text-gray-500 text-center py-4">Aucune commande enregistrée</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {orders.slice(0, 5).map((order) => (
+                                    <div key={order.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <div className="font-medium">{order.number}</div>
+                                            <div className="text-sm text-gray-600">
+                                                {order.client?.name} • {order.date}
+                                                {order.createdBy && (
+                                                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                                        par {order.createdBy.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-bold text-green-600">{order.total.toFixed(2)}€</div>
+                                            <div className="text-xs text-gray-500">{order.status}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Page principale de l'application
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [currentPage, setCurrentPage] = useState('produits');
+            const [showMenu, setShowMenu] = useState(false);
+
+            // États pour les données
+            const [products, setProducts] = useState([
+                { id: 1, name: 'Produit A', price: 25.99, selected: false, quantity: 1 },
+                { id: 2, name: 'Produit B', price: 45.50, selected: false, quantity: 1 },
+                { id: 3, name: 'Produit C', price: 12.00, selected: false, quantity: 1 }
+            ]);
+
+            const [clients, setClients] = useState([]);
+            const [orders, setOrders] = useState([]);
+            const [users, setUsers] = useState([]); // Nouveau: gestion des utilisateurs
+            const [selectedClient, setSelectedClient] = useState(null);
+            const [selectedDistributor, setSelectedDistributor] = useState(null);
+            const [showClientSelector, setShowClientSelector] = useState(false); // Nouveau: pour la recherche de clients
+            const [showDistributorSelector, setShowDistributorSelector] = useState(false); // Nouveau: pour la recherche de distributeurs
+
+            // Formulaires
+            const [newProductName, setNewProductName] = useState('');
+            const [newProductPrice, setNewProductPrice] = useState('');
+            const [newClientName, setNewClientName] = useState('');
+            const [clientType, setClientType] = useState('pharmacies');
+
+            const handleLogin = (userData) => {
+                setUser(userData);
+                if (userData.role === 'admin') {
+                    setCurrentPage('dashboard');
+                } else {
+                    setCurrentPage('produits');
+                }
+            };
+
+            const handleLogout = () => {
+                setUser(null);
+                setCurrentPage('produits');
+            };
+
+            // Gestion des utilisateurs
+            const handleCreateAccount = (newUser) => {
+                // Vérifier si le nom d'utilisateur existe déjà
+                const existingUser = users.find(u => u.username === newUser.username);
+                if (existingUser) {
+                    return false; // Nom d'utilisateur déjà pris
+                }
+                
+                // Vérifier aussi les comptes par défaut
+                if (newUser.username === 'admin' || newUser.username === 'user') {
+                    return false;
+                }
+
+                setUsers(prev => [...prev, newUser]);
+                return true; // Succès
+            };
+
+            const handleUpdateUser = (userId, updates) => {
+                setUsers(prev => prev.map(user => 
+                    user.id === userId ? { ...user, ...updates } : user
+                ));
+            };
+
+            const handleDeleteUser = (userId) => {
+                setUsers(prev => prev.filter(user => user.id !== userId));
+            };
+
+            const addProduct = () => {
+                if (newProductName.trim() && newProductPrice) {
+                    const newProduct = {
+                        id: Date.now(),
+                        name: newProductName.trim(),
+                        price: parseFloat(newProductPrice),
+                        selected: false,
+                        quantity: 1
+                    };
+                    setProducts([...products, newProduct]);
+                    setNewProductName('');
+                    setNewProductPrice('');
+                }
+            };
+
+            const addClient = () => {
+                if (newClientName.trim()) {
+                    const newClient = {
+                        id: Date.now(),
+                        name: newClientName.trim(),
+                        type: clientType,
+                        createdDate: new Date().toLocaleDateString('fr-FR')
+                    };
+                    setClients([...clients, newClient]);
+                    setNewClientName('');
+                }
+            };
+
+            const toggleProductSelection = (id) => {
+                setProducts(products.map(product => 
+                    product.id === id ? { ...product, selected: !product.selected } : product
+                ));
+            };
+
+            const updateQuantity = (id, quantity) => {
+                const newQuantity = parseInt(quantity) || 0;
+                setProducts(products.map(product => 
+                    product.id === id ? { ...product, quantity: newQuantity } : product
+                ));
+            };
+
+            const calculateTotal = () => {
+                return products
+                    .filter(product => product.selected && product.quantity > 0)
+                    .reduce((total, product) => total + (product.price * product.quantity), 0)
+                    .toFixed(2);
+            };
+
+            const createOrder = () => {
+                if (!selectedClient) {
+                    alert('⚠️ Veuillez sélectionner un client !');
+                    return;
+                }
+
+                const selectedProducts = products.filter(p => p.selected && p.quantity > 0);
+                if (selectedProducts.length === 0) {
+                    alert('⚠️ Aucun produit sélectionné !');
+                    return;
+                }
+
+                const total = parseFloat(calculateTotal());
+                if (total <= 0) return;
+
+                const newOrder = {
+                    id: Date.now(),
+                    number: `BC${(orders.length + 1).toString().padStart(5, '0')}`,
+                    date: new Date().toLocaleDateString('fr-FR'),
+                    time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                    client: selectedClient,
+                    distributor: selectedDistributor,
+                    products: selectedProducts.map(p => ({
+                        name: p.name,
+                        price: p.price,
+                        quantity: p.quantity,
+                        total: p.price * p.quantity
+                    })),
+                    total: total,
+                    status: 'En attente',
+                    createdBy: user // Associer la commande à l'utilisateur connecté
+                };
+
+                setOrders([newOrder, ...orders]);
+                setProducts(products.map(p => ({ ...p, selected: false, quantity: 1 })));
+                setSelectedClient(null);
+                setSelectedDistributor(null);
+                setShowClientSelector(false);
+                setShowDistributorSelector(false);
+                
+                alert(`✅ Commande ${newOrder.number} créée !`);
+                setCurrentPage('commandes');
+            };
+
+            // Fonction pour filtrer les commandes selon l'utilisateur
+            const getUserOrders = () => {
+                if (user.role === 'admin') {
+                    // Les admins voient toutes les commandes par défaut, mais peuvent aussi voir seulement les leurs
+                    return orders;
+                } else {
+                    // Les utilisateurs normaux ne voient que leurs commandes
+                    return orders.filter(order => order.createdBy?.id === user.id);
+                }
+            };
+
+            // Fonction pour les statistiques des commandes de l'utilisateur
+            const getUserOrderStats = () => {
+                const userOrders = getUserOrders();
+                return {
+                    total: userOrders.length,
+                    pending: userOrders.filter(o => o.status === 'En attente').length,
+                    processed: userOrders.filter(o => o.status === 'Traitée').length,
+                    totalValue: userOrders.reduce((sum, o) => sum + o.total, 0)
+                };
+            };
+
+            const isDistributorRequired = () => {
+                return selectedClient && ['pharmacies', 'grossistes'].includes(selectedClient.type);
+            };
+
+            const getAvailableDistributors = () => {
+                if (!selectedClient) return [];
+                const distributorType = selectedClient.type === 'pharmacies' ? 'grossistes' : 'supergrossistes';
+                return clients.filter(client => client.type === distributorType);
+            };
+
+            const validSelectedCount = products.filter(p => p.selected && p.quantity > 0).length;
+
+            // Si pas connecté, afficher la page de connexion
+            if (!user) {
+                return <LoginPage 
+                    onLogin={handleLogin} 
+                    users={users}
+                    onCreateAccount={handleCreateAccount}
+                />;
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto p-2 lg:p-4 bg-gray-50 min-h-screen">
+                    <div className="bg-white rounded-lg shadow-lg p-3 lg:p-6">
+                        {/* En-tête */}
+                        <div className="flex items-center justify-between mb-4 lg:mb-6">
+                            <div className="flex items-center gap-2 lg:gap-3">
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowMenu(!showMenu)}
+                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                    >
+                                        ☰
+                                    </button>
+                                    
+                                    {showMenu && (
+                                        <div className="absolute top-12 left-0 bg-white border rounded-lg shadow-lg z-50 min-w-48">
+                                            <div className="py-2">
+                                                {user.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => { setCurrentPage('dashboard'); setShowMenu(false); }}
+                                                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${currentPage === 'dashboard' ? 'bg-blue-50 text-blue-600' : ''}`}
+                                                    >
+                                                        📊 Dashboard
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => { setCurrentPage('produits'); setShowMenu(false); }}
+                                                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${currentPage === 'produits' ? 'bg-blue-50 text-blue-600' : ''}`}
+                                                >
+                                                    📦 Produits
+                                                </button>
+                                                <button
+                                                    onClick={() => { setCurrentPage('commandes'); setShowMenu(false); }}
+                                                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${currentPage === 'commandes' ? 'bg-blue-50 text-blue-600' : ''}`}
+                                                >
+                                                    📋 Commandes
+                                                </button>
+                                                <button
+                                                    onClick={() => { setCurrentPage('clients'); setShowMenu(false); }}
+                                                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${currentPage === 'clients' ? 'bg-blue-50 text-blue-600' : ''}`}
+                                                >
+                                                    👥 Clients
+                                                </button>
+                                                {user.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => { setCurrentPage('utilisateurs'); setShowMenu(false); }}
+                                                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${currentPage === 'utilisateurs' ? 'bg-blue-50 text-blue-600' : ''}`}
+                                                    >
+                                                        👤 Utilisateurs
+                                                    </button>
+                                                )}
+                                                <div className="border-t my-2"></div>
+                                                <button
+                                                    onClick={() => { handleLogout(); setShowMenu(false); }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                                                >
+                                                    🚪 Déconnexion
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <h1 className="text-lg lg:text-2xl font-bold text-gray-800">
+                                    {currentPage === 'dashboard' ? '📊 Dashboard' :
+                                     currentPage === 'produits' ? '📦 Produits' : 
+                                     currentPage === 'commandes' ? '📋 Commandes' : 
+                                     currentPage === 'utilisateurs' ? '👤 Utilisateurs' : '👥 Clients'}
+                                </h1>
+                            </div>
+                            
+                            <div className="text-right">
+                                <div className="text-xs lg:text-sm font-medium">{user.name}</div>
+                                <div className={`text-xs px-2 py-1 rounded ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                                    {user.role === 'admin' ? '👑 Admin' : '👤 User'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Contenu selon la page */}
+                        {currentPage === 'dashboard' && user.role === 'admin' && (
+                            <AdminDashboard clients={clients} orders={orders} products={products} users={users} />
+                        )}
+
+                        {currentPage === 'utilisateurs' && user.role === 'admin' && (
+                            <UserManagement 
+                                users={users}
+                                onUpdateUser={handleUpdateUser}
+                                onDeleteUser={handleDeleteUser}
+                                onCreateUser={handleCreateAccount}
+                            />
+                        )}
+
+                        {currentPage === 'produits' && (
+                            <div>
+                                {/* Statistiques */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-blue-600">{products.length}</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Total Produits</div>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-green-600">{products.filter(p => p.selected).length}</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Sélectionnés</div>
+                                    </div>
+                                    <div className="bg-gray-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-gray-600">{products.length - products.filter(p => p.selected).length}</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Non sélectionnés</div>
+                                    </div>
+                                    <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-yellow-600">{calculateTotal()}€</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Total</div>
+                                    </div>
+                                </div>
+
+                                {/* Sélection client */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                    <h3 className="font-semibold text-blue-800 mb-2 text-sm lg:text-base">👥 Sélection du Client (Obligatoire)</h3>
+                                    
+                                    {selectedClient ? (
+                                        <div className="bg-white rounded-lg p-4 border border-green-200">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <h4 className="font-bold">{selectedClient.name}</h4>
+                                                    <p className="text-sm text-gray-600">
+                                                        {selectedClient.type === 'pharmacies' ? '🏥 Pharmacie' : 
+                                                         selectedClient.type === 'grossistes' ? '🏢 Grossiste' : '🏭 Supergrossiste'}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => { 
+                                                        setSelectedClient(null); 
+                                                        setSelectedDistributor(null);
+                                                        setShowClientSelector(false);
+                                                        setShowDistributorSelector(false);
+                                                    }}
+                                                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                                >
+                                                    Changer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {!showClientSelector ? (
+                                                <div className="text-center py-3 lg:py-4">
+                                                    <p className="text-gray-600 mb-2 text-sm lg:text-base">Aucun client sélectionné</p>
+                                                    <button
+                                                        onClick={() => setShowClientSelector(true)}
+                                                        className="px-4 lg:px-6 py-2 lg:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm lg:text-base"
+                                                    >
+                                                        🔍 Rechercher un client
+                                                    </button>
+                                                    {clients.length === 0 && (
+                                                        <div className="mt-3 lg:mt-4">
+                                                            <p className="text-gray-500 mb-2 text-sm">Aucun client enregistré</p>
+                                                            <button
+                                                                onClick={() => setCurrentPage('clients')}
+                                                                className="px-3 lg:px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                                                            >
+                                                                ➕ Ajouter un client
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <ClientSelector
+                                                    clients={clients}
+                                                    selectedClient={selectedClient}
+                                                    onSelectClient={(client) => {
+                                                        setSelectedClient(client);
+                                                        setShowClientSelector(false);
+                                                        setSelectedDistributor(null); // Reset distributeur
+                                                        setShowDistributorSelector(false); // Fermer sélecteur distributeur
+                                                    }}
+                                                    onCancel={() => setShowClientSelector(false)}
+                                                />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Sélection distributeur si requis */}
+                                    {isDistributorRequired() && (
+                                        <div className="mt-3 lg:mt-4 bg-orange-50 border border-orange-200 rounded-lg p-3 lg:p-4">
+                                            <h4 className="font-semibold text-orange-800 mb-2 lg:mb-3 text-sm lg:text-base">
+                                                🏢 Sélection du {selectedClient.type === 'pharmacies' ? 'Grossiste' : 'Supergrossiste'} (Obligatoire)
+                                            </h4>
+                                            
+                                            {selectedDistributor ? (
+                                                <div className="bg-white rounded-lg p-3 border border-green-200">
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h5 className="font-bold">{selectedDistributor.name}</h5>
+                                                            <p className="text-sm text-gray-600">
+                                                                {selectedDistributor.type === 'grossistes' ? '🏢 Grossiste' : '🏭 Supergrossiste'}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setSelectedDistributor(null)}
+                                                            className="px-3 py-1 bg-gray-500 text-white rounded text-sm"
+                                                        >
+                                                            Changer
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    {!showDistributorSelector ? (
+                                                        <div className="text-center py-3 lg:py-4">
+                                                            <p className="text-orange-700 mb-2 text-sm lg:text-base">
+                                                                Aucun {selectedClient.type === 'pharmacies' ? 'grossiste' : 'supergrossiste'} sélectionné
+                                                            </p>
+                                                            <button
+                                                                onClick={() => setShowDistributorSelector(true)}
+                                                                className="px-4 lg:px-6 py-2 lg:py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm lg:text-base"
+                                                            >
+                                                                🔍 Rechercher un {selectedClient.type === 'pharmacies' ? 'grossiste' : 'supergrossiste'}
+                                                            </button>
+                                                            {getAvailableDistributors().length === 0 && (
+                                                                <div className="mt-3 lg:mt-4">
+                                                                    <p className="text-gray-500 mb-2 text-sm">
+                                                                        Aucun {selectedClient.type === 'pharmacies' ? 'grossiste' : 'supergrossiste'} enregistré
+                                                                    </p>
+                                                                    <button
+                                                                        onClick={() => setCurrentPage('clients')}
+                                                                        className="px-3 lg:px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                                                                    >
+                                                                        ➕ Ajouter un {selectedClient.type === 'pharmacies' ? 'grossiste' : 'supergrossiste'}
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <DistributorSelector
+                                                            availableDistributors={getAvailableDistributors()}
+                                                            selectedDistributor={selectedDistributor}
+                                                            distributorType={selectedClient.type === 'pharmacies' ? 'grossistes' : 'supergrossistes'}
+                                                            onSelectDistributor={(distributor) => {
+                                                                setSelectedDistributor(distributor);
+                                                                setShowDistributorSelector(false);
+                                                            }}
+                                                            onCancel={() => setShowDistributorSelector(false)}
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Ajout produit - ADMIN SEULEMENT */}
+                                {user.role === 'admin' && (
+                                    <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                                        <h3 className="font-semibold text-gray-700 mb-2 text-sm lg:text-base">Ajouter un produit</h3>
+                                        <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+                                            <input
+                                                type="text"
+                                                value={newProductName}
+                                                onChange={(e) => setNewProductName(e.target.value)}
+                                                placeholder="Nom du produit"
+                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                            />
+                                            <input
+                                                type="number"
+                                                value={newProductPrice}
+                                                onChange={(e) => setNewProductPrice(e.target.value)}
+                                                placeholder="Prix (€)"
+                                                min="0"
+                                                step="0.01"
+                                                className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                            />
+                                            <button
+                                                onClick={addProduct}
+                                                disabled={!newProductName.trim() || !newProductPrice}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm whitespace-nowrap"
+                                            >
+                                                ➕ Ajouter
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Message pour les utilisateurs non-admin */}
+                                {user.role !== 'admin' && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-blue-600 text-sm">ℹ️</span>
+                                            <p className="text-blue-800 text-sm">
+                                                <strong>Information :</strong> Seuls les administrateurs peuvent créer de nouveaux produits. 
+                                                Vous pouvez sélectionner parmi les produits existants et créer des commandes.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Liste des produits */}
+                                <div className="space-y-2 lg:space-y-3 mb-4 lg:mb-6">
+                                    {products.map((product) => (
+                                        <div key={product.id} className={`bg-white rounded-lg p-3 lg:p-4 border ${product.selected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={product.selected}
+                                                        onChange={() => toggleProductSelection(product.id)}
+                                                        className="w-4 h-4 lg:w-5 lg:h-5 flex-shrink-0"
+                                                    />
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="font-semibold text-sm lg:text-base truncate">{product.name}</div>
+                                                        <div className="text-xs lg:text-sm text-gray-600">{product.price.toFixed(2)}€</div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-1 lg:gap-3 flex-shrink-0">
+                                                    {product.selected && (
+                                                        <>
+                                                            <input
+                                                                type="number"
+                                                                value={product.quantity}
+                                                                onChange={(e) => updateQuantity(product.id, e.target.value)}
+                                                                min="0"
+                                                                className="w-14 lg:w-20 px-1 lg:px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                                                            />
+                                                            <div className="font-bold text-green-600 text-sm lg:text-base whitespace-nowrap">
+                                                                {(product.price * product.quantity).toFixed(2)}€
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {/* Bouton suppression - ADMIN SEULEMENT */}
+                                                    {user.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => setProducts(products.filter(p => p.id !== product.id))}
+                                                            className="p-1 lg:p-2 text-red-600 hover:bg-red-100 rounded text-sm"
+                                                            title="Supprimer le produit (Admin seulement)"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Récapitulatif commande */}
+                                {validSelectedCount > 0 && (
+                                    <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 lg:p-6 border border-green-200">
+                                        <h3 className="text-base lg:text-lg font-bold mb-3 lg:mb-4">📋 Récapitulatif de la Commande</h3>
+                                        
+                                        <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-3 lg:mb-4">
+                                            <div className="text-center">
+                                                <div className="text-lg lg:text-2xl font-bold text-blue-600">{validSelectedCount}</div>
+                                                <div className="text-xs lg:text-sm text-gray-600">Articles</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-lg lg:text-2xl font-bold text-green-600">
+                                                    {products.filter(p => p.selected && p.quantity > 0).reduce((sum, p) => sum + p.quantity, 0)}
+                                                </div>
+                                                <div className="text-xs lg:text-sm text-gray-600">Quantité totale</div>
+                                            </div>
+                                            <div className="text-center">
+                                                <div className="text-xl lg:text-3xl font-bold text-yellow-600">{calculateTotal()}€</div>
+                                                <div className="text-xs lg:text-sm text-gray-600">TOTAL</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setProducts(products.map(p => ({ ...p, selected: false })));
+                                                        setSelectedClient(null);
+                                                        setSelectedDistributor(null);
+                                                        setShowClientSelector(false);
+                                                        setShowDistributorSelector(false);
+                                                    }}
+                                                    className="px-3 lg:px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+                                                >
+                                                    Vider panier
+                                                </button>
+                                                <button
+                                                    onClick={() => setProducts(products.map(p => ({ ...p, selected: true })))}
+                                                    className="px-3 lg:px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                                >
+                                                    Tout sélectionner
+                                                </button>
+                                            </div>
+                                            <button
+                                                onClick={createOrder}
+                                                disabled={!selectedClient || (isDistributorRequired() && !selectedDistributor) || validSelectedCount === 0}
+                                                className={`px-4 lg:px-8 py-2 lg:py-3 rounded-lg font-bold text-sm lg:text-lg ${
+                                                    !selectedClient || (isDistributorRequired() && !selectedDistributor) || validSelectedCount === 0
+                                                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                                }`}
+                                            >
+                                                🛒 Créer Commande - {calculateTotal()}€
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {currentPage === 'commandes' && (
+                            <div>
+                                {/* Statistiques commandes */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-blue-600">{getUserOrderStats().total}</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">
+                                            {user.role === 'admin' ? 'Total Commandes' : 'Mes Commandes'}
+                                        </div>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-green-600">
+                                            {getUserOrderStats().pending}
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">En attente</div>
+                                    </div>
+                                    <div className="bg-orange-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-orange-600">
+                                            {getUserOrderStats().processed}
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Traitées</div>
+                                    </div>
+                                    <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-yellow-600">
+                                            {getUserOrderStats().totalValue.toFixed(2)}€
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Valeur totale</div>
+                                    </div>
+                                </div>
+
+                                {/* Info pour les admins */}
+                                {user.role === 'admin' && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-amber-600 text-sm">👑</span>
+                                            <p className="text-amber-800 text-sm">
+                                                <strong>Mode Administrateur :</strong> Vous voyez toutes les commandes de tous les utilisateurs.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Liste des commandes */}
+                                <div className="space-y-4">
+                                    {getUserOrders().length === 0 ? (
+                                        <div className="text-center py-8 lg:py-12">
+                                            <div className="text-4xl lg:text-6xl mb-4">📋</div>
+                                            <h3 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">
+                                                {user.role === 'admin' ? 'Aucune commande' : 'Aucune commande personnelle'}
+                                            </h3>
+                                            <p className="text-gray-500 mb-3 lg:mb-4 text-sm lg:text-base">
+                                                {user.role === 'admin' 
+                                                    ? 'Aucune commande n\'a été créée dans le système'
+                                                    : 'Créez votre première commande depuis la page Produits'
+                                                }
+                                            </p>
+                                            <button
+                                                onClick={() => setCurrentPage('produits')}
+                                                className="px-4 lg:px-6 py-2 lg:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm lg:text-base"
+                                            >
+                                                Aller aux Produits
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        getUserOrders().map((order) => (
+                                            <div key={order.id} className="bg-white border border-gray-200 rounded-lg p-3 lg:p-4">
+                                                <div className="flex justify-between items-start mb-2 lg:mb-3">
+                                                    <div>
+                                                        <h3 className="font-bold text-base lg:text-lg text-blue-600">{order.number}</h3>
+                                                        <p className="text-xs lg:text-sm text-gray-500">{order.date} à {order.time}</p>
+                                                        {/* Affichage du créateur pour les admins */}
+                                                        {user.role === 'admin' && order.createdBy && (
+                                                            <p className="text-xs text-purple-600 mt-1">
+                                                                👤 Créée par {order.createdBy.name}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className={`px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium ${
+                                                            order.status === 'En attente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                                                        }`}>
+                                                            {order.status}
+                                                        </span>
+                                                        <div className="text-lg lg:text-xl font-bold text-green-600 mt-1">
+                                                            {order.total.toFixed(2)}€
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Client et distributeur */}
+                                                {order.client && (
+                                                    <div className="space-y-2 mb-2 lg:mb-3">
+                                                        <div className="bg-blue-50 rounded-lg p-2 lg:p-3">
+                                                            <div className="font-semibold text-sm lg:text-base">{order.client.name}</div>
+                                                            <div className="text-xs lg:text-sm text-gray-600">
+                                                                {order.client.type === 'pharmacies' ? '🏥 Pharmacie' : 
+                                                                 order.client.type === 'grossistes' ? '🏢 Grossiste' : '🏭 Supergrossiste'}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {order.distributor && (
+                                                            <div className="bg-orange-50 rounded-lg p-2 lg:p-3">
+                                                                <div className="font-semibold text-sm lg:text-base">{order.distributor.name}</div>
+                                                                <div className="text-xs lg:text-sm text-gray-600">
+                                                                    {order.distributor.type === 'grossistes' ? '🏢 Grossiste' : '🏭 Supergrossiste'} - Chaîne de distribution
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Produits */}
+                                                <div className="bg-gray-50 rounded-lg p-2 lg:p-3 mb-2 lg:mb-3">
+                                                    <h4 className="font-semibold mb-1 lg:mb-2 text-sm lg:text-base">Produits ({order.products.length})</h4>
+                                                    {order.products.map((product, index) => (
+                                                        <div key={index} className="flex justify-between text-xs lg:text-sm">
+                                                            <span className="truncate flex-1 mr-2">{product.name}</span>
+                                                            <span className="flex-shrink-0">{product.quantity} × {product.price.toFixed(2)}€ = <strong>{product.total.toFixed(2)}€</strong></span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Actions - Seul le créateur peut modifier sa commande (ou admin) */}
+                                                {(order.createdBy?.id === user.id || user.role === 'admin') && (
+                                                    <div className="flex flex-col sm:flex-row gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                const updatedOrders = orders.map(o => 
+                                                                    o.id === order.id 
+                                                                        ? { ...o, status: o.status === 'En attente' ? 'Traitée' : 'En attente' }
+                                                                        : o
+                                                                );
+                                                                setOrders(updatedOrders);
+                                                            }}
+                                                            className={`px-3 lg:px-4 py-2 rounded text-xs lg:text-sm font-medium ${
+                                                                order.status === 'En attente'
+                                                                    ? 'bg-green-600 text-white hover:bg-green-700'
+                                                                    : 'bg-yellow-600 text-white hover:bg-yellow-700'
+                                                            }`}
+                                                        >
+                                                            {order.status === 'En attente' ? '✓ Marquer traitée' : '⏳ En attente'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('Supprimer cette commande ?')) {
+                                                                    setOrders(orders.filter(o => o.id !== order.id));
+                                                                }
+                                                            }}
+                                                            className="px-3 lg:px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-xs lg:text-sm"
+                                                        >
+                                                            🗑️ Supprimer
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {currentPage === 'clients' && (
+                            <div>
+                                {/* Message d'information selon le rôle */}
+                                {user.role !== 'admin' && (
+                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-green-600 text-sm">ℹ️</span>
+                                            <p className="text-green-800 text-sm">
+                                                <strong>Votre rôle :</strong> Vous pouvez créer et gérer des clients. 
+                                                Les produits sont gérés par les administrateurs.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {user.role === 'admin' && (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-blue-600 text-sm">👑</span>
+                                            <p className="text-blue-800 text-sm">
+                                                <strong>Mode Administrateur :</strong> Vous avez accès complet à la gestion des clients et des produits.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Statistiques clients */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-blue-600">{clients.length}</div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Total Clients</div>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-green-600">
+                                            {clients.filter(c => c.type === 'pharmacies').length}
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Pharmacies</div>
+                                    </div>
+                                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-blue-600">
+                                            {clients.filter(c => c.type === 'grossistes').length}
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Grossistes</div>
+                                    </div>
+                                    <div className="bg-purple-50 p-3 rounded-lg text-center">
+                                        <div className="text-xl lg:text-2xl font-bold text-purple-600">
+                                            {clients.filter(c => c.type === 'supergrossistes').length}
+                                        </div>
+                                        <div className="text-xs lg:text-sm text-gray-600">Supergrossistes</div>
+                                    </div>
+                                </div>
+
+                                {/* Ajout client */}
+                                <div className="bg-gray-50 p-3 lg:p-4 rounded-lg mb-4">
+                                    <h3 className="font-semibold text-gray-700 mb-2 text-sm lg:text-base">Ajouter un client</h3>
+                                    <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+                                        <input
+                                            type="text"
+                                            value={newClientName}
+                                            onChange={(e) => setNewClientName(e.target.value)}
+                                            placeholder="Nom du client"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        />
+                                        <select
+                                            value={clientType}
+                                            onChange={(e) => setClientType(e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                        >
+                                            <option value="pharmacies">🏥 Pharmacie</option>
+                                            <option value="grossistes">🏢 Grossiste</option>
+                                            <option value="supergrossistes">🏭 Supergrossiste</option>
+                                        </select>
+                                        <button
+                                            onClick={addClient}
+                                            disabled={!newClientName.trim()}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm whitespace-nowrap"
+                                        >
+                                            ➕ Ajouter
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Liste des clients */}
+                                <div className="space-y-3 lg:space-y-4">
+                                    {clients.length === 0 ? (
+                                        <div className="text-center py-8 lg:py-12">
+                                            <div className="text-4xl lg:text-6xl mb-4">👥</div>
+                                            <h3 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">Aucun client</h3>
+                                            <p className="text-gray-500 text-sm lg:text-base">Ajoutez votre premier client ci-dessus</p>
+                                        </div>
+                                    ) : (
+                                        clients.map((client) => (
+                                            <div key={client.id} className="bg-white border border-gray-200 rounded-lg p-3 lg:p-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
+                                                            <span className="text-lg lg:text-2xl flex-shrink-0">
+                                                                {client.type === 'pharmacies' ? '🏥' : 
+                                                                 client.type === 'grossistes' ? '🏢' : '🏭'}
+                                                            </span>
+                                                            <h3 className="text-base lg:text-lg font-bold truncate">{client.name}</h3>
+                                                            <span className={`px-2 py-1 rounded text-xs flex-shrink-0 ${
+                                                                client.type === 'pharmacies' ? 'bg-green-100 text-green-800' :
+                                                                client.type === 'grossistes' ? 'bg-blue-100 text-blue-800' :
+                                                                'bg-purple-100 text-purple-800'
+                                                            }`}>
+                                                                {client.type === 'pharmacies' ? 'Pharmacie' : 
+                                                                 client.type === 'grossistes' ? 'Grossiste' : 'Supergrossiste'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs lg:text-sm text-gray-500">Ajouté le {client.createdDate}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setClients(clients.filter(c => c.id !== client.id))}
+                                                        className="p-1 lg:p-2 text-red-600 hover:bg-red-100 rounded flex-shrink-0 ml-2"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Page d'accès refusé */}
+                        {((currentPage === 'dashboard' || currentPage === 'utilisateurs') && user.role !== 'admin') && (
+                            <div className="text-center py-8 lg:py-12">
+                                <div className="text-4xl lg:text-6xl mb-4">🚫</div>
+                                <h3 className="text-lg lg:text-xl font-semibold text-gray-700 mb-2">Accès refusé</h3>
+                                <p className="text-gray-500 mb-4 lg:mb-6 text-sm lg:text-base">
+                                    Seuls les administrateurs peuvent accéder {currentPage === 'dashboard' ? 'au dashboard' : 'à la gestion des utilisateurs'}.
+                                </p>
+                                <button
+                                    onClick={() => setCurrentPage('produits')}
+                                    className="px-4 lg:px-6 py-2 lg:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm lg:text-base"
+                                >
+                                    Retour aux Produits
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
